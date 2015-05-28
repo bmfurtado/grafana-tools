@@ -16,7 +16,7 @@ import urllib
 import urllib2
 
 
-def grafana_dashboard_backups(elastic_host, elastic_port, dest_dir, es_index_name, debug):
+def grafana_dashboard_backups(elastic_host, elastic_path, elastic_port, dest_dir, es_index_name, debug):
   '''Saves all Grafana dashboards stored in Elasticsearch in a tarball
   
      Uses Elasticsearch API to get all saved dashboards into a tarball, the 
@@ -75,11 +75,21 @@ def grafana_dashboard_backups(elastic_host, elastic_port, dest_dir, es_index_nam
     json.dump(data, dump_file, sort_keys = True, indent = 2, ensure_ascii=False)
     dump_file.close()
   
+
+  def urljoin(*args):
+    """
+    Joins given arguments into a url. Trailing but not leading slashes are
+    stripped for each argument.
+    """
+
+    return "/".join(map(lambda x: str(x).lstrip('/'), args))
+
+
   # Conveniance vars
   es_type        = 'dashboard'
-  es_url         = 'http://%s:%s' % (elastic_host, elastic_port)
-  dashboards_url = '%s/%s/%s/_search' % (es_url, es_index_name, es_type)
-  scroll_url     = '%s/_search/scroll' % es_url
+  es_url         = urljoin('http://%s:%s' % (elastic_host, elastic_port), elastic_path)
+  dashboards_url = urljoin(es_url, '%s/%s/_search' % (es_index_name, es_type))
+  scroll_url     = urljoin(es_url, '_search/scroll')
   scroll_time    = '1m'
   work_tmp_dir   = tempfile.mkdtemp()
   utc_datetime   = datetime.datetime.utcnow()
@@ -167,6 +177,12 @@ def main():
     dest    = 'elastic_port',
     help    = 'The elastic search port used by grafana',
     metavar = 'ELASTIC_SEARCH_PORT')
+
+  parser.add_option('-P', '--grafana-elasticsearch-path',
+  	default = '/',
+  	dest    = 'elastic_path',
+  	help    = 'The elastic search api path',
+  	metavar = 'ELASTIC_SEARCH_PATH')
   
   parser.add_option('-t', '--dest-dir',
     default = '/var/opt/grafana-dashboards-backups',
@@ -187,10 +203,11 @@ def main():
   
   elastic_host = options.elastic_host
   elastic_port = options.elastic_port
+  elastic_path = options.elastic_path
   dest_dir = options.dest_dir
   debug = options.debug
 
-  grafana_dashboard_backups(elastic_host, elastic_port, dest_dir, options.es_index_name, debug)
+  grafana_dashboard_backups(elastic_host, elastic_path, elastic_port, dest_dir, options.es_index_name, debug)
 
 if __name__ == '__main__':
   main()
